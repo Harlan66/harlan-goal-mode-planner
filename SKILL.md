@@ -1,193 +1,244 @@
 ---
-name: harlan-goal-mode-planner
-description: Use when helping a user design, diagnose, rewrite, or refine a Codex Goal Mode goal, especially when converting vague intentions into executable long-running goals or improving an existing Goal with boundaries, stages, status tracking, acceptance criteria, and stop conditions.
+name: goal-mode-planner
+description: >
+  帮助用户设计、诊断、重写或打磨 Codex Goal 模式的目标（Goal）。尤其适用于把一句模糊想法变成
+  可长期执行的目标，或为已有 Goal 补上范围、边界、阶段、状态跟踪、验收标准与停止条件。
+  当用户说"帮我把这个想法整理成 Goal""诊断这个目标""这个目标会不会跑偏""怎么拆阶段"
+  "Goal 一直在打转停不下来"等场景时使用。
 ---
 
-# Goal Mode Planner
+# Goal 模式规划器
 
-## Purpose
+## 这个 Skill 在解决什么问题
 
-Use this skill to turn a user's intention into a Goal Mode goal that can be executed continuously without drifting, looping, or making unsupported judgments.
+很多 Goal 模式任务失败，不是模型不够强，而是目标太宽、范围不清、缺阶段、没验收、没停止条件。
+核心判断：**一个好的 Goal 不只是"目标"，它必须同时定义范围、边界、阶段、状态跟踪、验收标准和停止条件。**
 
-The core rule: a good Goal is not only a target. It must define scope, boundaries, stages, status tracking, acceptance criteria, and stop conditions.
+帮用户产出的，是一个能被**持续执行而不跑偏、不打转、不替用户做主观判断**的 Goal。
 
-## First Decision
+## 先理解 Goal 模式的本质（推理基础）
 
-Choose one path before producing output:
+普通对话是"问一句答一句"，给个 prompt 做到标准就结束。Goal 模式不同，它的关键词是**持续**：
 
-- Existing Goal provided: diagnose and revise it.
-- Vague intention provided: guide the user from ambiguity to an executable Goal.
-- Concept discussion only: explain Goal Mode briefly, then ask whether the user wants diagnosis or creation.
+- 这个目标**既是起始提示，也是完成标准**。Codex 用它判断"下一步做什么"和"任务到底完成没有"。
+- 每个阶段结束，它会重新评估：做到哪了？目标实现了吗？没实现就继续推进。
 
-Do not jump directly to a polished Goal when essential information is missing. Ask targeted questions first.
+正因为它会**持续自我推进**，所以一旦目标、阶段、停止条件没写清楚，它就会出现两种典型故障——**跑偏**和**在一处反复打转**。
+本 Skill 的所有规则，都是为了堵住这两个故障。这是后面每条护栏存在的原因。
 
-## Path A: Diagnose And Revise Existing Goal
+## 两条必须先讲清的能力边界
 
-Use when the user provides a draft Goal, prompt, task description, or screenshot of a Goal.
+护栏之所以重要，是因为 Goal 模式有两条硬边界。诊断和重写时，始终拿这两条对照。
 
-### Process
+### 边界一：AI 没有"流体智能"——不要把判断交给它
 
-1. Restate the intended outcome in one or two sentences.
-2. Diagnose problems before rewriting.
-3. Give concrete adjustment advice.
-4. Produce an improved Goal only after the diagnosis is clear.
+AI 没有真正的审美、信任、逻辑判断，某种意义上也不懂因果。它能写出看起来正确的话，但不代表它真懂：
 
-### Diagnostic Checklist
+- 它能写出"提升信任"，但**不懂什么内容真的会带来信任**；
+- 它能写出"建立审美"，但**没办法像人一样判断这个审美到底对不对**；
+- 它能写出"发现长期风险"，但**分不清哪些风险来自数据、哪些来自人对账号的感受**。
 
-Check whether the current Goal:
+所以分工的判断依据很简单：
+- **交给 AI**：数据分析、信息整理、初步归纳、对比、起草、计算、检查、发现异常、给候选方案。
+- **留给人**：审美判断、信任判断、品牌/账号方向、战略取舍、因果归因、重大主观抉择。
 
-- is too broad or mixes several projects;
-- lacks stages or milestones;
-- lacks input materials or data sources;
-- lacks concrete deliverables;
-- lacks status tracking;
-- lacks acceptance criteria;
-- lacks stop conditions;
-- lets AI make final judgments about aesthetics, trust, strategy, taste, causality, or business tradeoffs;
-- invites infinite optimization, repeated replanning, or returning to earlier stages;
-- fails to say what not to do.
+遇到 Goal 里出现"有审美""有信任""做战略判断"这类词，不是删掉，而是改写成"AI 整理证据 + 给候选 + 标记需用户确认"。
 
-### Revision Output
+### 边界二：无限优化循环——不给停止条件它就停不下来
 
-Use this structure:
+Goal 模式有完美主义倾向：每一版它都觉得还能更好，于是继续规划、继续改、继续反思。
+
+**可观测的"打转"信号**（Codex 过程可见，诊断时直接看）：
+- 反复修改**同一个文件**；
+- 每个阶段结束又说"我重新检查/重新规划一下前面"，然后回到上一阶段；
+- 一直在产出，但你看不出它在给你产出什么明确结果。
+
+出现这些信号时的处置：**强制进入下一阶段，当前阶段只解决当前阶段的问题，不返工。**
+对应的护栏是：阶段边界、验收标准、停止条件三者缺一不可。
+
+## 先做一个判断：走哪条路
+
+产出前先选一条路：
+
+- **已有 Goal**（草稿 / prompt / 任务描述 / 截图）→ 走 **Path A：诊断并重写**。
+- **只有模糊想法**（"我想做 X""帮我规划 Y"）→ 走 **Path B：从模糊想法构建**。
+- **只是想了解 Goal 模式是什么** → 用上面"本质"和"两条边界"两节简要解释，然后问一句：你是想诊断已有目标，还是从头构建一个？据回答转入 A 或 B。
+
+关键信息缺失时，不要直接给一个漂亮的成品 Goal。先问针对性问题。
+
+## Path A：诊断并重写已有 Goal
+
+### 流程
+
+1. 用一两句话复述用户真正想要的结果。
+2. **先诊断，再重写**（不要跳过诊断直接给新版）。
+3. 给出具体的调整建议。
+4. 诊断清楚后，才产出改进版 Goal。
+
+### 诊断清单
+
+逐条检查当前 Goal，每条都带一个"中招长什么样"的识别信号：
+
+- **太宽 / 混了多个项目**——一句话里既要数据分析又要内容策略又要账号战略；
+- **没有阶段或里程碑**——所有事混在一起做，看不出先后；
+- **没说清输入材料 / 数据源**——没指明用哪些数据、文件、链接；
+- **没有具体交付物**——只说"分析账号"，没说要产出什么文件；
+- **没有状态跟踪**——无法知道它现在在第几步；
+- **没有验收标准**——做到哪算完成说不清；
+- **没有停止条件**——没说什么时候该停下不再优化；
+- **把主观判断交给了 AI**——让 AI 拍板审美、信任、战略、品味、因果、商业取舍（违反边界一）；
+- **诱发无限优化**——出现"改到最好""持续优化直到没有可改"或每阶段回头重做（违反边界二）；
+- **没说"不要做什么"**——只有 scope 没有 out of scope。
+
+### 重写输出格式
 
 ```markdown
-## Diagnosis
+## 诊断
 
-- Main issue:
-- Why it matters:
-- Suggested adjustment:
+- 主要问题：
+- 为什么这是问题：
+- 建议怎么调整：
 
-## Revised Goal
+## 重写后的 Goal
 
-### Background
-
-### Final Objective
-
-### Current Stage
-
-### Available Inputs
-
-### Scope
-
-### Out Of Scope
-
-### Stage Plan
-
-### Status Table
-
-Track:
-- stage
-- completed work
-- current work
-- next step
-- blocker
-- user decision needed
-
-### Deliverables
-
-### Acceptance Criteria
-
-### Stop Conditions
-
-### Human Decision Points
+（采用下方"标准 Goal 模板"）
 ```
 
-Keep the revised Goal direct and operational. Do not make it sound like a mission statement.
+重写后的 Goal 要直接、可执行。不要写成宏大的使命宣言——把范围说得更具体，而不是把话说得更宏大。
 
-## Path B: Build A Goal From A Vague Intention
+## Path B：从模糊想法构建 Goal
 
-Use when the user says something like "I want to do X", "help me plan Y", or gives a rough direction without a finished Goal.
+### 引导提问
 
-### Guided Questions
+只问"推进下一步必需"的问题，每批 3–6 个，不要一次轰炸。覆盖这些方面：
 
-Ask only the questions needed for the next step. Prefer batches of 3 to 6 questions.
+1. **目标**：做完之后，什么东西应该成立？
+2. **背景**：为什么现在做？什么触发了这个任务？
+3. **输入**：有哪些材料、文件、链接、数据、示例可用？
+4. **范围**：希望 Agent 做什么？
+5. **边界**：希望 Agent **不要**做什么？
+6. **人类判断**：哪些决定必须由用户来定？（对照边界一）
+7. **阶段**：天然可以分成哪几个阶段？
+8. **交付物**：每个阶段应该产出什么？
+9. **验收**：用户怎么判断"够好了"？
+10. **停止**：什么时候该停，而不是继续优化？
 
-Cover these areas:
+用户答不全时，照样产出草稿，但把假设写明，未定项标注"需用户确认"。
 
-1. Objective: What should be true when this is done?
-2. Background: Why do this now? What triggered the task?
-3. Inputs: What materials, files, links, data, or examples are available?
-4. Scope: What should the Agent do?
-5. Boundaries: What should the Agent not do?
-6. Human judgment: Which decisions require the user?
-7. Stages: What are the natural phases?
-8. Deliverables: What should each phase produce?
-9. Acceptance: How will the user judge whether it is good enough?
-10. Stop: When should the Agent stop instead of continuing to optimize?
+### 创建输出格式
 
-If the user cannot answer everything, create a draft with explicit assumptions and mark unresolved decisions as "needs user confirmation".
+信息足够后，按下方"标准 Goal 模板"产出。
 
-### Creation Output
-
-After enough information is available, produce:
+## 标准 Goal 模板（A / B 共用）
 
 ```markdown
 # Goal
 
-## Background
+## 背景
 
-## Objective
+## 最终目标
 
-## Inputs
+## 当前阶段
 
-## Scope
+## 可用输入
 
-## Out Of Scope
+## 范围（要做什么）
 
-## Stage Plan
+## 不做什么（Out of Scope）
 
-1. Stage:
-   - task:
-   - output:
-   - acceptance:
+## 分阶段计划
+1. 阶段一：
+   - 任务：
+   - 产出：
+   - 验收：
+2. 阶段二：
+   - 任务：
+   - 产出：
+   - 验收：
 
-## Status Table Requirement
+## 状态表（必须维护）
+| 阶段 | 已完成 | 正在做 | 下一步 | 是否卡住 | 是否允许返工 | 需用户决策 |
+| --- | --- | --- | --- | --- | --- | --- |
 
-Maintain a status table with:
-- stage
-- done
-- doing
-- next
-- blocker
-- needs user decision
+## 交付物
 
-## Acceptance Criteria
+## 验收标准
 
-## Stop Conditions
+## 停止条件
 
-## Human Decision Points
+## 人类决策点
 ```
 
-## Core Principles
+> 注意：状态表里的"**是否允许返工**"是关键列，它直接对应"反无限优化"——默认本阶段完成即不返工。
 
-- Goal Mode is for sustained execution, not one-turn answering.
-- A Goal must define how progress will be judged after each stage.
-- Long tasks need stages and milestones.
-- Status tables are mandatory for multi-stage work.
-- Stop conditions prevent endless polishing and replanning.
-- AI can organize, compare, draft, summarize, calculate, inspect, and suggest.
-- The user should own final judgment for aesthetics, trust, brand direction, strategy, causality, and major tradeoffs.
-- If a task requires taste or business judgment, ask the Agent to surface options and evidence, not make the final call alone.
+## 六个关键要点（每条都给例子和可照抄的句子）
 
-## Common Fixes
+### ① 目标要说清楚——具体，而不是宏大
 
-Use these transformations:
+只写大方向它一定跑偏。把"经营整个账号"收成"一个可交付、可检查的具体任务"。
 
-- "帮我长期经营账号" -> "先基于现有数据完成账号经营现状分析，暂不做审美和信任判断。"
-- "优化这个项目" -> "列出当前问题，按影响排序，先修前三个可验证问题。"
-- "一直改到最好" -> "完成验收标准后停止，并列出可选后续优化，不自动继续。"
-- "帮我做判断" -> "整理证据、给出候选判断，并标记需要用户确认的地方。"
+- ❌ `帮我长期经营一个买手账号。`
+- ✅ `请先基于现有直播数据、商品数据和退款数据，完成账号经营现状分析。输出商品优先级、退款风险、返场建议和内容方向建议。暂时不要做账号审美和信任判断，只整理可验证的数据结论。`
 
-## Warnings
+### ② 要拆阶段——长期任务就是项目管理
 
-Avoid Goals that ask the Agent to:
+长期任务必须拆阶段、设里程碑，否则它会一边分析、一边改目标、一边重规划，最后打转。
+一个可迁移的三阶段范式（以买手账号案例为例）：
 
-- pursue "best", "ultimate", or "perfect" without a stop condition;
-- keep iterating until no improvements remain;
-- repeatedly replan after each phase;
-- decide subjective quality without user criteria;
-- silently expand scope;
-- replace user judgment in high-context decisions.
+1. **阶段一**：总览整体数据，规划分析方式。
+2. **阶段二**：整理并获取原始数据。
+3. **阶段三**：处理原始数据，按规划输出分析结果。
 
-When these appear, rewrite them into bounded tasks with stage outputs and explicit user checkpoints.
+每阶段完成进入下一阶段，**不重复、不回头**。
+
+### ③ 要建立 status 表格——你得知道它在第几步
+
+至少让用户看到：当前阶段、已完成、正在做、下一步、是否卡住、**是否允许返工**。
+因为 Codex 过程可见——你要能看出它有没有在反复改同一个文件、有没有在一个问题上打转；有，就让它进下一阶段。
+
+### ④ 要给验收标准——说清最后要产出什么
+
+不要只说"帮我分析这个账号"，要把交付物列出来。范例：
+
+- 一份商品优先级表
+- 一份返场建议
+- 一份下架建议
+- 一份退款风险清单
+- 一份内容方向建议
+- 一份长期风险判断
+
+这样它知道"做到哪算完成"，不会一直觉得上一版还能再补。
+
+### ⑤ 要限制无限优化——给一句明确的停止指令
+
+直接把这句写进 Goal（可照抄）：
+
+> 当前阶段完成后进入下一阶段。除非发现关键错误，否则不要回头重做。
+
+人做事不能一直返工，否则没有结果。强制规定：一个阶段完成后不返工，本阶段只解决本阶段的问题。
+
+### ⑥ 适合 AI 的交给 AI，判断留给人
+
+数据类（直播/商品/退款数据、粉丝分层、优惠券与引流效果）交给 AI 先看；
+账号有没有信任感、内容有没有审美、长期方向对不对，不能完全交给 AI。
+AI 提供材料、整理结构、发现异常；最后的判断由人来做。Goal 模式不是自动驾驶，是一个执行力强、但需要你不断设边界的助手。
+
+## 常见改写
+
+把模糊指令转成有边界的任务：
+
+- `帮我长期经营账号` → `先基于现有数据完成账号经营现状分析，暂不做审美和信任判断。`
+- `优化这个项目` → `列出当前问题，按影响排序，先修前三个可验证问题。`
+- `一直改到最好` → `完成验收标准后停止，并列出可选后续优化，不自动继续。`
+- `帮我做判断` → `整理证据、给出候选判断，并标记需要用户确认的地方。`
+
+## 警惕这些写法
+
+当 Goal 要求 Agent 做以下事情时，必须改写成"有阶段产出 + 明确用户检查点"的有边界任务：
+
+- 追求"最好""极致""完美"却没有停止条件（中边界二）；
+- 持续迭代直到没有可改之处（中边界二）；
+- 每个阶段后反复重新规划（中边界二）；
+- 在没有用户标准的情况下判定主观质量（中边界一）；
+- 悄悄扩大范围；
+- 在高情境决策中取代用户判断（中边界一）。
